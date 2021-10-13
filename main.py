@@ -16,47 +16,54 @@ sensor_gain = 1
 timeDelay = 5
 
 # Keep reference constant?
-refConst = False
+refConst = True
 
 ################################################################
 
-y = 0
-ymax = (controller_gain * plant_gain * reference) / (1 + controller_gain * plant_gain * sensor_gain)
+# Main script below
+if __name__ == "__main__":
+    # y (output) is 0 at time T0
+    y = 0
 
-storeX=[]; storeY=[]; storeRef=[]
-for i in range(0,100): # change this to while y ~ ymax ... perhaps 5% off? Have break condition if not met e.g. after 1000 loops...
-    if not refConst:
-        reference = reference + (random.random()*random.randint(-1, 1))
-    
-    if i % int(timeDelay) == 0:
-        error = reference - y
+    storeX=[]; storeY=[]; storeRef=[]; storeYInf=[]
+    for i in range(0,100): # change this to while y ~ yInf ... perhaps 5% off? Have break condition if not met e.g. after 1000 loops...        
+        # + or - a value from reference value if refConst == False only
+        if not refConst:
+            reference = reference + (random.random()*random.randint(-1, 1))
+        
+        # With no time delay, what should yInf be now...
+        # Note that when refConst is set to True, yInf is a constant
+        yInf = (controller_gain * plant_gain * reference) / (1 + controller_gain * plant_gain * sensor_gain)
+
+        # If the remainder of current time step 'i' / plant time delay == 0 then the
+        # signal has had sufficient time to be fed back to the start i.e. recalculate
+        # error and y...
+        if timeDelay > 0:
+            if i % int(timeDelay) == 0:
+                error = reference - y
+        else: error = reference - yInf
         y = error * controller_gain * plant_gain
 
-    storeX.append(i)
-    storeY.append(y)
-    storeRef.append(reference)
+        storeX.append(i)
+        storeY.append(y)
+        storeRef.append(reference)
+        storeYInf.append(yInf)
 
-# Collect all the values (to be displayed...)
-if not refConst:
-    reference = 'varied'
+    # Collect all the values (to be displayed...)
+    if not refConst:
+        reference = 'varied'
+    values = '\nref: {} | Cgain: {} | pGain: {} | sGain: {} | tDelay: {}'.format(reference,
+                                                                                controller_gain,
+                                                                                plant_gain,
+                                                                                sensor_gain,
+                                                                                timeDelay)
 
-values = '\nref: {} | Cgain: {} | pGain: {} | sGain: {} | tDelay: {}'.format(reference,
-                                                                            controller_gain,
-                                                                            plant_gain,
-                                                                            sensor_gain,
-                                                                            timeDelay)
-
-plt.title(values)
-plt.plot(storeX, storeY, '-')
-plt.plot(storeX, storeRef)
-if refConst:
-    plt.plot(storeX, np.ones(i+1)*ymax, '--')
-    plt.ylabel('y'.format(round(ymax,2)))
-    plt.legend(['y', 'ref', 'ymax'])
-
-else:
+    # Plot and label the graph
+    plt.title(values)
+    plt.plot(storeX, storeY, '-')
+    plt.plot(storeX, storeRef)
+    plt.plot(storeX, storeYInf) # np.ones(i+1)*yInf, '--')
     plt.ylabel('y')
-    plt.legend(['y', 'ref'])
-
-plt.xlabel('Time Step (T)')
-plt.show()
+    plt.legend(['y', 'ref', 'yInf'])
+    plt.xlabel('Time Step (T)')
+    plt.show()
